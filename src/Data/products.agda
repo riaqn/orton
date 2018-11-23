@@ -1,3 +1,4 @@
+
 ----------------------------------------------------------------------
 -- This Agda code is designed to accompany the paper
 --
@@ -27,6 +28,132 @@ open import fibrations
 Σ' A B x = Σ a ∈ A x , B (x , a)
 
 abstract
+ module FibΣidInternal {A : Int → Set} 
+                       {B : (Σ x ∈ Int , A x) → Set} 
+                       (α : isFib A)
+                       (β : isFib B)
+                       (p : Int → Int) where
+  transLift :
+   {i : Int}
+   {Bi : A (p i) → Set}
+   {x y z : A (p i)}
+   (p : x ≡ y)
+   (q : x ≡ z)
+   (r : y ≡ z)
+   {bx : Bi x}
+   {by : Bi y}
+   (s : subst Bi p bx ≡ by)
+   → ---------
+   subst Bi q bx ≡ subst Bi r by
+  transLift refl refl refl refl = refl
+
+
+  module Construct (φ : Cof)
+                   (f : [ φ ] → Π ((Σ' A B) ∘ p))
+                   (e₀ e₁ : Int)
+                   (h₀ : ⟦ x₀ ∈ (Σ' A B) (p e₀) ∣ (φ , f) ∙ e₀ ↗ x₀ ⟧) where
+    a₀ = fst (fst h₀)
+    b₀ = snd (fst h₀)
+    f↗ab₀ = snd h₀
+
+    fa : [ φ ] → Π (A ∘ p)
+    fa u i = fst (f u i)
+
+    fa↗a₀ : prf ((φ , fa) ∙ e₀ ↗ a₀)
+    fa↗a₀ u = cong fst (f↗ab₀ u)
+
+    Σa₁ = fst (α p) φ fa e₀ e₁ (a₀ , fa↗a₀)
+
+    a₁ : (A ∘ p) e₁
+    a₁ = fst Σa₁
+
+    fa↗a₁ : prf ((φ , fa) ∙ e₁ ↗ a₁)
+    fa↗a₁ = snd Σa₁
+
+    Σfa' = fill {A = A} α p φ fa e₀ (a₀ , fa↗a₀)
+
+    fa' : Π (A ∘ p)
+    fa' = fst Σfa'
+
+    fa↗fa' : prf( (φ , fa) ↗ fa')
+    fa↗fa' = fst (snd Σfa')
+
+    fa'≈a₀ : prf (fa' e₀ ≈ a₀)
+    fa'≈a₀ = snd (snd Σfa')
+
+    q : Int → (Σ x ∈ Int , A x)
+    q i = (p i , fa' i)
+
+    fb' : [ φ ] → Π (B ∘ q)
+    fb' u i = subst (λ a → B (p i , a)) (appCongDep (fa↗fa' u)) (snd (f u i))
+
+    b₀' : B (p e₀ , fa' e₀)
+    b₀' = subst (λ a → B (p e₀ , a)) (symm fa'≈a₀) b₀
+
+
+    fb'↗b₀' : prf ((φ , fb') ∙ e₀ ↗ b₀')
+    fb'↗b₀' u = transLift fa₀≡a₀ fa₀≡fa'₀ a₀≡fa'₀ s where
+                 fa₀≡a₀ : (fa u e₀) ≡ a₀
+                 fa₀≡a₀ = Σeq₁ (snd h₀ u)
+
+                 a₀≡fa'₀ : a₀ ≡ (fa' e₀)
+                 a₀≡fa'₀ = symm fa'≈a₀
+
+                 fa₀≡fa'₀ : (fa u e₀) ≡ fa' e₀
+                 fa₀≡fa'₀ = appCongDep (fa↗fa' u)
+
+                 s : subst (λ a → B ( p e₀ , a)) fa₀≡a₀ (snd (f u e₀) ) ≡ b₀
+                 s = Σeq₂ (snd h₀ u)
+
+    fa'₁ = fa' e₁
+
+    Σb₁' = fst (β q) φ fb' e₀ e₁ (b₀' , fb'↗b₀')
+
+    b₁' : B (p e₁ , fa'₁)
+    b₁' = fst Σb₁'
+
+    fb'↗b₁' : prf ((φ , fb') ∙ e₁ ↗ b₁')
+    fb'↗b₁' = snd Σb₁'
+
+    b₁ : B (p e₁ , a₁)
+    b₁ = subst (λ a → B (p e₁ , a)) (fillAtAny α p φ fa e₀ a₀ fa↗a₀ e₁) b₁'
+
+    f↗ab₁ : prf ((φ , f ) ∙ e₁ ↗ (a₁ , b₁))
+    f↗ab₁ u = Σext (fa↗a₁ u) (transLift fa₁≡fa'₁ fa₁≡a₁ fa'₁≡a₁ fb'₁≡b₁') where
+                fa₁ = fst (f u e₁)
+                fb'₁ = fb' u e₁
+
+                fa₁≡fa'₁ : fa₁ ≡ fa'₁
+                fa₁≡fa'₁ = appCongDep (fa↗fa' u)
+
+                fa₁≡a₁ : fa₁ ≡ a₁
+                fa₁≡a₁ = fa↗a₁ u
+
+                fa'₁≡a₁ : fa'₁ ≡ a₁
+                fa'₁≡a₁ = fillAtAny α p φ fa e₀ a₀ fa↗a₀ e₁
+
+                fb'₁≡b₁' : fb'₁ ≡ b₁'
+                fb'₁≡b₁' = fb'↗b₁' u
+
+    h₁ : ⟦ x₁ ∈ (Σ' A B) (p e₁) ∣ (φ , f) ∙ e₁ ↗ x₁ ⟧ 
+    h₁ = (a₁ , b₁) , f↗ab₁
+
+  module Reduce (φ : Cof) (f : [ φ ] → Π ((Σ' A B) ∘ p))
+                (e : Int) (h : ⟦ x₀ ∈ (Σ' A B) (p e) ∣ (φ , f) ∙ e ↗ x₀ ⟧) where
+   module c = Construct φ f e e h
+
+   Σa₁≡Σa₀ : (c.a₁ , c.fa↗a₁) ≡ (c.a₀ , c.fa↗a₀)
+   Σa₁≡Σa₀ = snd (α p) φ c.fa  e ((c.a₀ , c.fa↗a₀))
+
+   Σb₁'≡Σb₀' : (c.b₁' , c.fb'↗b₁') ≡ (c.b₀' , c.fb'↗b₀')
+   Σb₁'≡Σb₀' = snd (β c.q) φ c.fb' e (c.b₀' , c.fb'↗b₀')
+
+   ab₁≡ab₀ : (c.a₁ , c.b₁) ≡ (c.a₀ , c.b₀)
+   ab₁≡ab₀ = symm (Σext (symm (cong fst Σa₁≡Σa₀)) (transLift (symm c.fa'≈a₀) (symm (cong fst Σa₁≡Σa₀)) (fillAtAny α p φ c.fa e c.a₀ c.fa↗a₀ e) (symm (cong fst Σb₁'≡Σb₀'))))
+
+   h₁≡h₀ : c.h₁ ≡ h
+   h₁≡h₀ = Σext ab₁≡ab₀ (funext (λ x → uip (subst (λ x₁ → prf ((φ , f) ∙ e ↗ x₁)) ab₁≡ab₀ c.f↗ab₁ x) (snd h x)))
+
  FibΣid :
   {A : Int → Set}
   {B : (Σ x ∈ Int , A x) → Set}
@@ -34,105 +161,27 @@ abstract
   (β : isFib B)
   → -----------
   isFib (Σ' A B)
- FibΣid {A} {B} α β e p φ f ((a₀ , b₀) , extendsF) = (fst a₁ , b₁') , extendsAt1 where
-  g : [ φ ] → Π (A ∘ p)
-  g u i = fst (f u i)
+ FibΣid {A} {B} α β p = (construct , reduce) where
+  module fibΣidInternal = FibΣidInternal {A} {B} α β p
+  construct : Comp ((Σ' A B ) ∘ p)
+  construct φ f e₀ e₁ h₀ = c.h₁ where
+   module c = fibΣidInternal.Construct φ f e₀ e₁ h₀
+  reduce : Reduce construct
+  reduce φ f e h = r.h₁≡h₀ where
+   module r = fibΣidInternal.Reduce φ f e h
 
-  a₀ExtendsG : prf ((φ , g) ∙ ⟨ e ⟩ ↗ a₀)
-  a₀ExtendsG u = cong fst (extendsF u)
 
-  a₁ : ⟦ a ∈ (A ∘ p) ⟨ ! e ⟩ ∣ (φ , g) ∙ ⟨ ! e ⟩ ↗ a ⟧
-  a₁ = α e p φ g (a₀ , a₀ExtendsG)
-
-  p' : ⟦ p' ∈ Π (A ∘ p) ∣ ((φ , g) ↗ p') & (p' ⟨ e ⟩ ≈ a₀) ⟧
-  p' = fill {A = A} e α p φ g a₀ a₀ExtendsG
-
-  q : Int → (Σ x ∈ Int , A x)
-  q i = (p i , fst p' i)
-
-  h : [ φ ] → Π (B ∘ q)
-  h u i = 
-    let p'ExtendsG = fst (snd p') u in
-    let atI = cong (λ f → f i) p'ExtendsG in
-    subst (λ a → B (p i , a)) atI (snd (f u i))
-
-  
-  transLift :
-    {i : Int}
-    {Bᵢ : A (p i) → Set}
-    {x y z : A (p i)}
-    (q : y ≡ z)
-    (p : x ≡ y)
-    (r : x ≡ z)
-    {bx : Bᵢ x}
-    {by : Bᵢ y}
-    (s : subst Bᵢ p bx ≡ by)
-    → ---------
-    subst Bᵢ r bx ≡ subst Bᵢ q by
-  transLift refl refl refl refl = refl
-
-  b₁ : ⟦ b ∈ (B ∘ q) ⟨ ! e ⟩ ∣ (φ , h) ∙ ⟨ ! e ⟩ ↗ b ⟧
-  b₁ =
-    β e q φ h (b₀' , wip) where
-      b₀' : (B ∘ q) ⟨ e ⟩
-      b₀' = subst (λ a → B (p ⟨ e ⟩ , a)) (symm (snd (snd p'))) b₀
-
-      wip : prf ((φ , h) ∙ ⟨ e ⟩ ↗ b₀')
-      wip u = transLift y≡z x≡y x≡z lhs≡rhs where
-        -- The fibers over B (p ⟨ e ⟩, _)
-        B₀ : A (p ⟨ e ⟩) → Set
-        B₀ a = B (p ⟨ e ⟩ , a)
-
-        -- We have 3 (propositionally) equal terms of type A (p ⟨ e ⟩)
-        x y z : A (p ⟨ e ⟩)
-        x = fst (f u ⟨ e ⟩); y = a₀; z = fst p' ⟨ e ⟩
-        
-        x≡y : x ≡ y
-        x≡y = Σeq₁ (extendsF u)
-        
-        y≡z : y ≡ z
-        y≡z = symm (snd (snd p'))
-        
-        x≡z : x ≡ z
-        x≡z = cong (λ f → f ⟨ e ⟩) (fst (snd p') u)
-
-        -- We want to show lhs = rhs in B₀ z      
-        lhs : B₀ x
-        lhs = snd (f u ⟨ e ⟩)
-
-        rhs : B₀ y
-        rhs = b₀
-
-        -- First, show that they're equal in B₀ y        
-        lhs≡rhs : subst B₀ x≡y lhs ≡ rhs
-        lhs≡rhs = Σeq₂ (extendsF u)
-
-  p'I≡a₁ : fst p' ⟨ ! e ⟩ ≡ fst a₁
-  p'I≡a₁ = fillAtEnd {A = A} e α p φ g a₀ a₀ExtendsG
-
-  b₁' : B (p ⟨ ! e ⟩ , fst a₁)
-  b₁' = subst (λ a → B (p ⟨ ! e ⟩ , a)) p'I≡a₁ (fst b₁)
-
-  extendsAt1 : prf ((φ , f) ∙ ⟨ ! e ⟩ ↗ (fst a₁ , b₁'))
-  extendsAt1 u = Σext gI≡a₁ (transLift p'I≡a₁ gI≡p'I  gI≡a₁ (snd b₁ u)) where
-    gI≡a₁ : g u ⟨ ! e ⟩ ≡ fst a₁
-    gI≡a₁ = snd a₁ u
-
-    gI≡p'I : g u ⟨ ! e ⟩ ≡ fst p' ⟨ ! e ⟩
-    gI≡p'I = cong (λ f → f ⟨ ! e ⟩) (fst (snd p') u)
-
-  
  fstFibΣid :
   {A : Int → Set}
   {B : (Σ x ∈ Int , A x) → Set}
   (α : isFib A)
   (β : isFib B)
-  (e : OI)(p : Int → Int)
+  (e₀ e₁ : Int)(p : Int → Int)
   (φ : Cof)(f : [ φ ] → Π ((Σ' A B) ∘ p))
-  (ab₀ : ⟦ ab ∈ Σ' A B (p ⟨ e ⟩) ∣ (φ , f) ∙ ⟨ e ⟩ ↗ ab ⟧)
+  (ab₀ : ⟦ ab ∈ Σ' A B (p e₀) ∣ (φ , f) ∙ e₀ ↗ ab ⟧)
   → -----------
-  fst (fst (FibΣid {A} {B} α β e p φ f ab₀)) ≡ fst (α e p φ (λ u i → fst (f u i)) ((fst (fst ab₀)) , (λ u → cong fst (snd ab₀ u))))
- fstFibΣid α β e p φ f ab₀ = refl
+  fst (fst (fst (FibΣid {A} {B} α β p)  φ f e₀ e₁ ab₀)) ≡ fst (fst (α p) φ (λ u i → fst (f u i)) e₀ e₁  ((fst (fst ab₀)) , (λ u → cong fst (snd ab₀ u))))
+ fstFibΣid α β e p φ f ab₀ = λ ab₁ → refl
 
 _×id : {A A' : Set}{B : A' → Set}(f : A → A') → Σ A (B ∘ f) → Σ A' B
 (f ×id) (a , b) = (f a , b)
@@ -145,7 +194,8 @@ FibΣ :
   (β : isFib B)
   → -----------
   isFib (Σ' A B)
-FibΣ {Γ} {A} {B} α β e p = FibΣid (reindex A α p) (reindex B β (p ×id)) e id
+fst (FibΣ {Γ} {A} {B} α β p) = fst (FibΣid (reindex A α p) (reindex B β (p ×id)) id)
+snd (FibΣ {Γ} {A} {B} α β p) = snd (FibΣid (reindex A α p) (reindex B β (p ×id)) id)
 
 ----------------------------------------------------------------------
 -- Forming Σ-types is stable under reindexing

@@ -1,3 +1,4 @@
+
 ----------------------------------------------------------------------
 -- This Agda code is designed to accompany the paper
 --
@@ -18,20 +19,25 @@ open import prelude
 open import impredicative
 open import interval
 open import cof
+open import Agda.Builtin.TrustMe
 
 ----------------------------------------------------------------------
 -- Path composition structure
 ----------------------------------------------------------------------
-Comp : OI → (Int → Set) → Set
-Comp e A = (φ : Cof)(f : [ φ ] → Π A) →
-  ⟦ x₁ ∈ (A ⟨ e ⟩) ∣ (φ , f) ∙ ⟨ e ⟩ ↗ x₁ ⟧ →
-  ⟦ x₀ ∈ (A ⟨ ! e ⟩) ∣ (φ , f) ∙ ⟨ ! e ⟩ ↗ x₀ ⟧
+Comp : (Int → Set) → Set
+Comp A = (φ : Cof) (f : [ φ ] → Π A) → (e₀ e₁ : Int)
+         (h₀ : ⟦ x₀ ∈ (A e₀) ∣ (φ , f) ∙ e₀ ↗ x₀ ⟧)
+         →     ⟦ x₁ ∈ (A e₁) ∣ (φ , f) ∙ e₁ ↗ x₁ ⟧
+
+Reduce : {A : Int → Set} → (c : Comp A) → Set
+Reduce {A = A} c = (φ : Cof) (f : [ φ ] → Π A) (e : Int) → (h : ⟦ a ∈ A e ∣ (φ , f) ∙ e ↗ a ⟧) → (c φ f e e h) ≡ h
 
 ----------------------------------------------------------------------
 -- Fibrations
 ----------------------------------------------------------------------
-isFib : ∀{a}{Γ : Set a}(A : Γ → Set) → Set a
-isFib {Γ = Γ} A = (e : OI)(p : Int → Γ) → Comp e (A ∘ p)
+
+isFib : ∀{a} {Γ : Set a} (A : Γ → Set) → Set a
+isFib {a = a} {Γ = Γ} A = (p : Int → Γ) → Σ c ∈ Comp (A ∘ p) , Reduce c
 
 Fib : ∀{a}(Γ : Set a) → Set (lsuc lzero ⊔ a)
 Fib {a} Γ = Σ (Γ → Set) isFib
@@ -40,11 +46,12 @@ Fib {a} Γ = Σ (Γ → Set) isFib
 -- Fibrations can be reindexed
 ----------------------------------------------------------------------
 reindex : ∀{a a'}{Δ : Set a}{Γ : Set a'}(A : Γ → Set)(α : isFib A)(ρ : Δ → Γ) → isFib (A ∘ ρ)
-reindex A α ρ e p = α e (ρ ∘ p)
+reindex A α ρ p = α (ρ ∘ p)
 
 reindex' : ∀{a a'}{Δ : Set a}{Γ : Set a'}(Aα : Fib Γ)(ρ : Δ → Γ) → Fib Δ
 reindex' (A , α) ρ = (A ∘ ρ , reindex A α ρ)
 
+{-
 ----------------------------------------------------------------------
 -- Reindexing is functorial
 ----------------------------------------------------------------------
@@ -71,7 +78,8 @@ abstract
 
 
 ----------------------------------------------------------------------
--- Using the fibration structure to interpret Γ ⊢ comp^i A [φ ↦ u] a₀
+-- Using the fibration structure to interpret
+-- Γ ⊢ comp^i A [φ ↦ u] a₀
 ----------------------------------------------------------------------
 comp^i :
   -- Context Γ
@@ -89,8 +97,8 @@ comp^i :
   -- Resulting term:  Γ ⊢ comp^i A [φ ↦ u] a₀
   ⟦ a₁ ∈ ((x : Γ) → A (x , I)) ∣ All x ∈ Γ , ((φ x , u x) ∙ I ↗ a₁ x) ⟧
 comp^i A α φ u (a₀ , ext) =
-  ( (λ x → fst (α O' (λ i → x , i) (φ x) (u x) (a₀ x , ext x)))
-  , (λ x → snd (α O' (λ i → x , i) (φ x) (u x) (a₀ x , ext x))) )
+  ( (λ x → fst (fst ({!!})))
+  , (λ x → snd (fst ({!!}))))
 
 -- This has the required uniformity property
 comp^iReindex :
@@ -110,33 +118,34 @@ comp^iReindex A α φ u a₀ f = refl
 ----------------------------------------------------------------------
 -- Trvial compositions might not reduce (we don't have regularity)
 ----------------------------------------------------------------------
-trivComp : {Γ : Set}(A : Fib Γ)(e : OI)(x : Γ)(a : fst A x) → fst A x
-trivComp (A , α) e x a = fst (α e (λ _ → x) cofFalse ∅-elim (a , (λ ())))
+
+trivComp : {Γ : Set}(A : Fib Γ)(e : Int)(x : Γ)(a : fst A x) → fst A x
+trivComp (A , α) e x a = fst (α e e (λ _ → x) cofFalse ∅-elim (a , (λ ())))
 
 ----------------------------------------------------------------------
 -- An extentionality principle for fibration structures
 ----------------------------------------------------------------------
 fibExt : {Γ : Set}{A : Γ → Set}{α α' : isFib A}
-  → ((e : OI)(p : Int → Γ)
+  → ((e e' : Int)(p : Int → Γ)
      (φ : Cof)(f : [ φ ] → Π (A ∘ p))
-     (a₀ : ⟦ x₁ ∈ (A (p ⟨ e ⟩)) ∣ (φ , f) ∙ ⟨ e ⟩ ↗ x₁ ⟧) → fst (α e p φ f a₀) ≡ fst (α' e p φ f a₀))
+     (a₀ : ⟦ x₁ ∈ (A (p e)) ∣ (φ , f) ∙ e ↗ x₁ ⟧) → fst (α e e' p φ f a₀) ≡ fst (α' e e' p φ f a₀))
   → α ≡ α'
 fibExt {α = α} {α'} ext =
-  funext (λ e → funext (λ p → funext (λ φ → funext (λ f →
-    funext (λ a₀ → incMono (λ x → (φ , f) ∙ ⟨ ! e ⟩ ↗ x) (α e p φ f a₀) (α' e p φ f a₀) (ext e p φ f a₀))))))
+  funext (λ e → funext (λ e' → funext (λ p → funext (λ φ → funext (λ f →
+    funext (λ a₀ → incMono (λ x → (φ , f) ∙ e' ↗ x) (α e e' p φ f a₀) (α' e e' p φ f a₀) (ext e e' p φ f a₀)))))))
 
 ----------------------------------------------------------------------
 -- Terminal object is fibrant
 ----------------------------------------------------------------------
 FibUnit : {Γ : Set} → isFib(λ(_ : Γ) → Unit)
-fst (FibUnit _ _ _ _ (unit , _))   = unit
-snd (FibUnit _ _ _ _ (unit , _)) _ = refl
+fst (FibUnit _ _ _ _ _ (unit , _))   = unit
+snd (FibUnit _ _ _ _ _ (unit , _)) _ = refl
 
 ----------------------------------------------------------------------
 -- Initial object is fibrant
 ----------------------------------------------------------------------
 Fib∅ : {Γ : Set} → isFib(λ(_ : Γ) → ∅)
-Fib∅ _ _ _ _ (() , _)
+Fib∅ _ _ _ _ _ (() , _)
 
 ----------------------------------------------------------------------
 -- Fibrations are closed under isomorphism
@@ -145,29 +154,27 @@ _≅_ : {Γ : Set}(A B : Γ → Set) → Set
 _≅_ {Γ} A B = (x : Γ) → Σ f ∈ (A x → B x) , Σ g ∈ (B x → A x) , (g ∘ f ≡ id) × (f ∘ g ≡ id)
 
 FibIso : {Γ : Set}(A B : Γ → Set) → (A ≅ B) → isFib A → isFib B
-FibIso A B iso α e p φ q b = b' where
-  !e : Int
-  !e = ⟨ ! e ⟩
+FibIso A B iso α e e' p φ q b = b' where
   f : (i : Int) → A (p i) → B (p i)
   f i = fst (iso (p i))
   g : (i : Int) → B (p i) → A (p i)
   g i = fst (snd (iso (p i)))
   q' : [ φ ] → Π (A ∘ p)
   q' u i = g i (q u i)
-  a : ⟦ a ∈ ((A ∘ p) ⟨ e ⟩) ∣ ((φ , q') ∙ ⟨ e ⟩) ↗ a ⟧
-  fst a = g ⟨ e ⟩ (fst b)
-  snd a u = cong (g ⟨ e ⟩) (snd b u)
-  a' : ⟦ a ∈ ((A ∘ p) !e) ∣ ((φ , q') ∙ !e) ↗ a ⟧
-  a' = α e p φ q' a
-  b' : ⟦ b ∈ ((B ∘ p) !e) ∣ ((φ , q) ∙ !e) ↗ b ⟧
-  fst b' = f !e (fst a')
+  a : ⟦ a ∈ ((A ∘ p) e ) ∣ ((φ , q') ∙ e) ↗ a ⟧
+  fst a = g e (fst b)
+  snd a u = cong (g e) (snd b u)
+  a' : ⟦ a ∈ ((A ∘ p) e') ∣ ((φ , q') ∙ e') ↗ a ⟧
+  a' = α e e' p φ q' a
+  b' : ⟦ b ∈ ((B ∘ p) e') ∣ ((φ , q) ∙ e') ↗ b ⟧
+  fst b' = f e' (fst a')
   snd b' u = z where
-    x : q' u !e ≡ fst a'
+    x : q' u e' ≡ fst a'
     x = snd a' u
-    y : f !e (q' u !e) ≡ f !e (fst a')
-    y = cong (f !e) x
-    z : q u !e ≡ f !e (fst a')
-    z = trans y (cong (λ f → f (q u !e)) (symm (snd (snd (snd (iso (p !e)))))))
+    y : f e' (q' u e') ≡ f e' (fst a')
+    y = cong (f e') x
+    z : q u e' ≡ f e' (fst a')
+    z = trans y (cong (λ f → f (q u e')) (symm (snd (snd (snd (iso (p e')))))))
 
 -- trans fgq≡b' (symm (fgq≡q)) where
 --     fgq≡b' : f !e (g !e (q u !e)) ≡ fst b'
@@ -177,23 +184,23 @@ FibIso A B iso α e p φ q b = b' where
 
 trivialFibIso : {Γ : Set}(A B : Γ → Set)(iso : A ≅ B)(α : isFib A)
   (p : Int → Γ)(b : B (p O))
-  → fst (FibIso A B iso α O' p cofFalse ∅-elim (b , λ ()))
-    ≡ fst (iso (p I)) (fst (α O' p cofFalse ∅-elim (fst (snd (iso (p O))) b , λ ())))
+  → fst (FibIso A B iso α O I p cofFalse ∅-elim (b , λ ()))
+    ≡ fst (iso (p I)) (fst (α O I p cofFalse ∅-elim (fst (snd (iso (p O))) b , λ ())))
 trivialFibIso A B iso α p b =
-  cong (λ hh' → fst (iso (p I)) (fst (α O' p cofFalse (fst hh') (fst (snd (iso (p O))) b , snd hh'))))
+  cong (λ hh' → fst (iso (p I)) (fst (α O I p cofFalse (fst hh') (fst (snd (iso (p O))) b , snd hh'))))
     (Σext (funext (λ ())) (funext (λ ())))
-  
+-}
 ----------------------------------------------------------------------
 -- Path filling structure
 ----------------------------------------------------------------------
-Fill : OI → (Int → Set) → Set
-Fill e A =
+Fill : (Int → Set) → Set
+Fill A =
   (φ : Cof)
   (f : [ φ ] → Π A)
-  (a : A ⟨ e ⟩)
-  (_ : prf ((φ , f) ∙ ⟨ e ⟩ ↗ a))
+  (e : Int)
+  (h : ⟦ a ∈ A e ∣ ((φ , f) ∙ e ↗ a )⟧)
   → --------------------------------------
-  ⟦ p ∈ Π A ∣ ((φ , f ) ↗ p) & (p ⟨ e ⟩ ≈ a) ⟧
+  ⟦ p ∈ Π A ∣ ((φ , f ) ↗ p) & p e ≈ fst h ⟧ 
 
 ----------------------------------------------------------------------
 -- Compatible partial functions
@@ -228,151 +235,47 @@ private
  fillInternal :
   {Γ : Set}
   {A : Γ → Set}
-  (e : OI)
   (α : isFib A)
   (p : Int → Γ)
   (φ : Cof)
-  (f : [ φ ] → Π (A ∘ p))
-  (a : A (p ⟨ e ⟩))
-  (u : prf ((φ , f) ∙ ⟨ e ⟩ ↗ a))
+  (f : [ φ ] → Π(A ∘ p))
+  (e₀ : Int)
+  (a : A (p e₀))
+  (u : prf ((φ , f) ∙ e₀ ↗ a))
   → -----------
-  Σ fill ∈ ⟦ p ∈ Π (A ∘ p) ∣ ((φ , f ) ↗ p) & (p ⟨ e ⟩ ≈ a) ⟧ , fst fill ⟨ ! e ⟩ ≡ fst (α e p φ f (a , u))
-fillInternal {Γ} {A} e α p φ f a u = (result , fillAtOne) where
-  p' : (i : Int) → Int → Γ
-  p' i j = p (cnx e i j)
+  Σ fill ∈ ⟦ fi ∈ Π (A ∘ p) ∣ ((φ , f ) ↗ fi) & (fi e₀ ≈ a) ⟧ ,
+  ((e₁ : Int) → fst fill e₁ ≡ fst (fst (α p) φ f e₀ e₁ (a , u)))
+ fillInternal {Γ} {A} α p φ f e a u = (fill , eqFib) where
+  fill : ⟦ fi ∈ Π (A ∘ p) ∣ (( φ , f ) ↗ fi) & (fi e ≈ a) ⟧
+  fst fill = λ i → fst (fst (α p) φ f e i (a , u))
+  fst (snd fill) = λ x → funext (λ i → (snd (fst (α p) φ f e i (a , u)) x))
+  snd (snd fill) = cong fst (snd (α p) φ f e (a , u))
 
-  f' : (i : Int) → [ φ ] → Π(A ∘ (p' i))
-  f' i u j = f u (cnx e i j)
-
-  g : (i : Int) → [ i ≈OI e ] → Π(A ∘ (p' i))
-  g .(⟨ e ⟩) refl j = a
-
-  agree : (i : Int) → prf ((φ , f' i) ⌣ (i ≈OI e , g i))
-  agree .(⟨ e ⟩) v refl = funext (λ j → u v)
-
-  h : (i : Int) → [ φ ∨ i ≈OI e ] → Π(A ∘ (p' i))
-  h i = _∪_ {φ = φ} {ψ = i ≈OI e} (f' i) (g i) { p = agree i }
-
-  AtZero : Int → Ω
-  AtZero i = ((φ ∨ i ≈OI e) , h i) ∙ ⟨ e ⟩ ↗ a
-  hAtZero : (i : Int) → prf (AtZero i)
-  hAtZero i v = ∥∥-rec (AtZero i) (cases i) v v where
-    cases : (i : Int) → prf (fst φ) ⊎ (i ≡ ⟨ e ⟩) → prf (AtZero i)
-    cases i (inl x) v = -- φ holds
-      proof:
-        snd (((φ ∨ i ≈OI e) , h i) ∙ ⟨ e ⟩) v
-          ≡[ cong (snd (((φ ∨ i ≈OI e) , h i) ∙ ⟨ e ⟩)) (equ ((fst φ or i ≈ ⟨ e ⟩)) v (∣ inl x ∣)) ]≡
-        snd (((φ ∨ i ≈OI e) , h i) ∙ ⟨ e ⟩) (∣ inl x ∣)
-          ≡[ refl ]≡
-        f x ⟨ e ⟩
-          ≡[ u x ]≡
-        a
-      qed
-    cases .(⟨ e ⟩) (inr refl) v = -- i=0 holds
-      proof:
-        snd (((φ ∨ ⟨ e ⟩ ≈OI e) , h ⟨ e ⟩) ∙ ⟨ e ⟩) v
-          ≡[ cong (snd (((φ ∨ ⟨ e ⟩ ≈OI e) , h ⟨ e ⟩) ∙ ⟨ e ⟩)) (equ ((fst φ or ⟨ e ⟩ ≈ ⟨ e ⟩)) v (∣ inr refl ∣)) ]≡
-        snd (((φ ∨ ⟨ e ⟩ ≈OI e) , h ⟨ e ⟩) ∙ ⟨ e ⟩) (∣ inr refl ∣)
-          ≡[ refl ]≡
-        g ⟨ e ⟩ refl ⟨ e ⟩
-          ≡[ refl ]≡
-        a
-      qed
-
-  fill : (i : Int) → ⟦ a ∈ (A ∘ p) i ∣ ((φ ∨ i ≈OI e) , h i) ∙ ⟨ ! e ⟩ ↗ a ⟧
-  fill i = (α e (p' i) (φ ∨ i ≈OI e) (h i) (a , hAtZero i))
-
-  extendsF : (v : [ φ ])(i : Int) → f v i ≡ fst (fill i)
-  extendsF v i = snd (fill i) ∣ inl v ∣
-
-  atZero : fst (fill ⟨ e ⟩) ≡ a
-  atZero = symm (snd (fill ⟨ e ⟩) ∣ inr refl ∣)
-
-  result : ⟦ p ∈ Π (A ∘ p) ∣ ((φ , f ) ↗ p) & (p ⟨ e ⟩ ≈ a) ⟧
-  fst result i = fst (fill i)
-  fst (snd result) v = funext (extendsF v)
-  snd (snd result) = atZero
-
-  φAtOne : (φ ∨ ⟨ ! e ⟩ ≈OI e) ≡ φ
-  φAtOne = cofEq (propext forwards backwards) where
-    forwards : prf (fst (φ ∨ ⟨ ! e ⟩ ≈OI e)) → prf (fst φ)
-    forwards v = ∥∥-rec (fst φ) cases v where
-      cases : prf (fst φ) ⊎ (⟨ ! e ⟩ ≡ ⟨ e ⟩) → prf (fst φ)
-      cases (inl p) = p
-      cases (inr !e=e) = e≠!e (symm !e=e)
-    backwards : prf (fst φ) → prf (fst (φ ∨ ⟨ ! e ⟩ ≈OI e))
-    backwards v = ∣ inl v ∣
-
-  propSwap :
-    {A : Set}
-    {P Q : Cof}
-    (p : P ≡ Q)
-    {f : [ P ] → A}
-    (u : [ Q ])
-    (v : [ P ])
-    → -----------
-    subst (λ φ → [ φ ] → A) p f u ≡ f v
-  propSwap {A} {P} .{P} refl {f} u v = cong f (equ (fst P) u v)
-
-  hAtOne : _≡_ {A = □ ((i : Int) → A (p i))} ((φ ∨ ⟨ ! e ⟩ ≈OI e) , h ⟨ ! e ⟩) (φ , f)
-  hAtOne = Σext φAtOne (funext hIi≡fi) where
-    hIi≡fi : (u : [ φ ]) → subst (λ φ₁ → [ φ₁ ] → (i : Int) → A (p i)) φAtOne (h ⟨ ! e ⟩) u ≡ f u
-    hIi≡fi u =
-      proof:
-        subst (λ φ₁ → [ φ₁ ] → (i : Int) → A (p i)) φAtOne (h ⟨ ! e ⟩) u
-          ≡[ propSwap φAtOne u  ∣ inl u ∣ ]≡
-        h ⟨ ! e ⟩  ∣ inl u ∣
-          ≡[ refl ]≡
-        f u
-      qed
-
-  tupleFiddle :
-    {A : Set}
-    {B : A → Set}
-    {C : (x : A) → B x → Set}
-    {a a' : A}
-    {b : B a}{b' : B a'}
-    {c : C a b}{c' : C a' b'}
-    (p : ((a , b) , c) ≡ ((a' , b') , c'))
-    → -----------
-    (a , (b , c)) ≡ (a' , (b' , c'))
-  tupleFiddle refl = refl
-
-  abstract
-   fillAtOne : fst (fill ⟨ ! e ⟩) ≡ fst (α e p φ f (a , u))
-   fillAtOne =
-    proof:
-      fst (fill ⟨ ! e ⟩)
-        ≡[ refl ]≡
-      fst (α e p (φ ∨ ⟨ ! e ⟩ ≈OI e) (h ⟨ ! e ⟩) (a , hAtZero ⟨ ! e ⟩))
-        ≡[ cong (λ{(ψ , f , u) → fst (α e p ψ f (a , u))}) (tupleFiddle (Σext hAtOne (eq (((φ , f) ∙ ⟨ e ⟩ ↗ a))))) ]≡
-      fst (α e p φ f (a , u)) 
-    qed
+  eqFib : (e' : Int) → fst fill e' ≡ fst (fst (α p) φ f e e' (a , u ))
+  eqFib = λ e' → refl
 
 abstract
  fill :
   {Γ : Set}
   {A : Γ → Set}
-  (e : OI)
   (α : isFib A)
   (p : Int → Γ)
   → -----------
-  Fill e (A ∘ p)
- fill {Γ} {A} e α p φ f a u = fst (fillInternal {A = A ∘ p} e (reindex A α p) id φ f a u)
+  Fill (A ∘ p)
+ fill {Γ} {A} α p φ f e (a , u) = fst (fillInternal {A = A ∘ p} (reindex A α p) id φ f e a u)
 
-abstract
- fillAtEnd :
+ fillAtAny :
   {Γ : Set}
   {A : Γ → Set}
-  (e : OI)
   (α : isFib A)
   (p : Int → Γ)
   (φ : Cof)
   (f : [ φ ] → Π (A ∘ p))
-  (a : A (p ⟨ e ⟩))
-  (u : prf ((φ , f) ∙ ⟨ e ⟩ ↗ a))
+  (e : Int)
+  (a : A (p e))
+  (u : prf ((φ , f) ∙ e ↗ a))
   → -----------
-  fst (fill {A = A} e α p φ f a u) ⟨ ! e ⟩ ≡ fst (α e p φ f (a , u))
- fillAtEnd {Γ} {A} e α p φ f a u = snd (fillInternal {A = A ∘ p} e (reindex A α p) id φ f a u)
+  (e' : Int) → fst (fill {A = A} α p φ f e (a , u)) e' ≡ fst (fst (α p) φ f e e' (a , u))
+ fillAtAny {Γ} {A} α p φ f e a u e' = snd (fillInternal {A = A ∘ p} (reindex A α p) id φ f e a u) e'
 
 

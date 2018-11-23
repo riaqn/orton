@@ -27,8 +27,7 @@ infix  6 _∙_
 ----------------------------------------------------------------------
 postulate
  cof   : Ω → Ω
- cofO  : (i : Int) → prf (cof (i ≈ O))
- cofI  : (i : Int) → prf (cof (i ≈ I))
+ cofInt  : (i j : Int) → prf (cof (i ≈ j))
  cofor : (P Q : Ω) → prf (cof P ⊃ cof Q ⊃ cof(P or Q))
  cof&  : (P Q : Ω) → prf (cof P ⊃ (P ⊃ cof Q) ⊃ cof(P & Q))
  cof∀  : (P : Int → Ω) → prf ((All i ∈ Int , cof (P i)) ⊃ cof (All i ∈ Int , P i))
@@ -39,13 +38,21 @@ Cof = ⟦ P ∈ Ω ∣ cof P ⟧
 [_] : Cof → Set
 [ φ ] = prf (fst φ)
 
+cofO : (i : Int) → prf (cof (i ≈ O))
+cofO i = cofInt i O
+
+cofI : (i : Int) → prf (cof (i ≈ I))
+cofI i = cofInt i I
+
+
+
 cofFalse : Cof
 fst cofFalse = ⊥
-snd cofFalse = subst (prf ∘ cof) (propext O≠I ∅-elim) (cofI O)
+snd cofFalse = subst (prf ∘ cof) (propext O≠I ∅-elim) (cofInt O I)
 
 cofTrue : Cof
 fst cofTrue = ⊤
-snd cofTrue = subst (prf ∘ cof) (propext (λ _ → tt) (λ _ → refl)) (cofO O)
+snd cofTrue = subst (prf ∘ cof) (propext (λ _ → tt) (λ _ → refl)) (cofInt O O)
 
 _≈O : (i : Int) → Cof
 fst (i ≈O) = i ≈ O
@@ -53,13 +60,18 @@ snd (i ≈O) = cofO i
 
 _≈I : (i : Int) → Cof
 fst (i ≈I) = i ≈ I
-snd (i ≈I) = cofI i
+snd (i ≈I) = cofI i 
+
+_≈Int_ : (i j : Int) → Cof
+fst (i ≈Int j) = i ≈ j
+snd (i ≈Int j) = cofInt i j
 
 _≈OI_ : (i : Int)(e : OI) → Cof
 fst (i ≈OI e) = i ≈ ⟨ e ⟩
 snd (i ≈OI e) with e
 ... | O' = cofO i
 ... | I' = cofI i
+
 
 _∨_ : Cof → Cof → Cof
 (P , u) ∨ (Q , v) = ((P or Q) , cofor P Q u v)

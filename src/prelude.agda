@@ -162,6 +162,18 @@ appCong :
   f x ≡ g x
 appCong refl = refl
 
+appCongDep :
+  {ℓ ℓ' : Level}
+  {A : Set ℓ}
+  {B : A → Set ℓ'}
+  {f g : (a : A) → B a}
+  {x : A}
+  (p : f ≡ g)
+  → -----------
+  f x ≡ g x
+appCongDep refl = refl
+
+
 ----------------------------------------------------------------------
 -- Equational reasoning
 ----------------------------------------------------------------------

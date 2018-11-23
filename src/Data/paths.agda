@@ -39,7 +39,7 @@ transDep {A} {α} {a} {a'} {b} (p , pO , pI) (q , qO , qI) = ((λ i → fst (r i
     cases (inr _) = q j
     
   r : (i : Int) → ⟦ a ∈ (A O) ∣ ((i ≈O ∨ i ≈I) , f i) ∙ O ↗ a ⟧
-  r i = α I' id (i ≈O ∨ i ≈I) (f i) (b , or-elim-eq (λ u → f i u I) b pI qI)
+  r i = fst (α id) (i ≈O ∨ i ≈I) (f i) I O (b , or-elim-eq (λ u → f i u I) b pI qI)
 
   rO≡a : fst (r O) ≡ a
   rO≡a = trans pO (symm (snd (r O) ∣ inl refl ∣))
@@ -56,7 +56,7 @@ transDep' {A} {α} {a} {b} {b'} (p , pO , pI) (q , qO , qI) = ((λ i → fst (r 
     cases (inr _) = q j
     
   r : (i : Int) → ⟦ b ∈ (A I) ∣ ((i ≈O ∨ i ≈I) , f i) ∙ I ↗ b ⟧
-  r i = α O' id (i ≈O ∨ i ≈I) (f i) (a , or-elim-eq (λ u → f i u O) a pO qO)
+  r i = fst (α id) (i ≈O ∨ i ≈I) (f i) O I (a , or-elim-eq (λ u → f i u O) a pO qO)
 
   rO≡a : fst (r O) ≡ b
   rO≡a = trans pI (symm (snd (r O) ∣ inl refl ∣))
@@ -79,7 +79,7 @@ transPath {A} α {x} {y} {z} p q = ((λ i → fst (r i)) , rO≡x , rI≡z) wher
   pO=pi .O refl = refl
   
   r : (i : Int) → ⟦ a ∈ A ∣ ((i ≈O ∨ i ≈I) , f i) ∙ I ↗ a ⟧
-  r i = α O' (λ _ → tt) (i ≈O ∨ i ≈I) (f i)
+  r i = fst (α (λ _ → tt)) (i ≈O ∨ i ≈I) (f i) O I 
     ((fst p i , or-elim-eq (λ u → f i u O) (fst p i) (λ {l} → trans (pO=pi i l) (symm (fst (snd p)))) (λ {r} → qO=pI i r)))
 
   rO≡x : fst (r O) ≡ x
@@ -98,15 +98,15 @@ congPath :
   f x ~ f y
 congPath f p = ((f ∘ (fst p)) , (cong f (fst (snd p))) , cong f (snd (snd p)))
 
-fillPath : {P : Int → Set}(ρ : isFib P)(x : P O) → _~~_ {P} x (fst (ρ O' id cofFalse ∅-elim (x , λ ())))
+fillPath : {P : Int → Set}(ρ : isFib P)(x : P O) → _~~_ {P} x (fst (fst (ρ id) cofFalse ∅-elim O I (x , λ ())))
 fillPath ρ x =
-  let filler = fill O' ρ id cofFalse ∅-elim x (λ ()) in
-  fst filler , snd (snd filler) , fillAtEnd O' ρ id cofFalse ∅-elim x (λ ())
+  let filler = fill ρ id cofFalse ∅-elim O (x , (λ ())) in
+  fst filler , snd (snd filler) , fillAtAny ρ id cofFalse ∅-elim O x (λ ()) I
 
-fillPath' : {P : Int → Set}(ρ : isFib P)(x : P I) → _~~_ {P} (fst (ρ I' id cofFalse ∅-elim (x , λ ()))) x
+fillPath' : {P : Int → Set}(ρ : isFib P)(x : P I) → _~~_ {P} (fst (fst (ρ id) cofFalse ∅-elim I O (x , λ ()))) x
 fillPath' ρ x =
-  let filler = fill I' ρ id cofFalse ∅-elim x (λ ()) in
-  fst filler , fillAtEnd I' ρ id cofFalse ∅-elim x (λ ()) , snd (snd filler)
+  let filler = fill ρ id cofFalse ∅-elim I (x , (λ ())) in
+  fst filler , fillAtAny ρ id cofFalse ∅-elim I x (λ ()) O , snd (snd filler)
 
 
 Path : {Γ : Set}(A : Γ → Set) → Σ x ∈ Γ , A x × A x → Set
@@ -124,13 +124,16 @@ reflPathEval refl i = refl
 PathExt : {A : Set}{a a' : A}{p q : a ~ a'} → fst p ≡ fst q → p ≡ q
 PathExt refl = Σext refl (Σext uipImp uipImp)
 
-abstract
- FibPathId :
-  {A : Int → Set}
-  (α : isFib A)
-  → -----------
-  isFib (Path A)
- FibPathId {A} α e p φ f path₀ = (path₁ , fExtends) where
+module FibPathIdInternal {A : Int → Set} 
+                         (α : isFib A)
+                         (p : Int → Σ γ ∈ Int , A γ × A γ) where
+ module Construct (φ : Cof)
+                  (f : [ φ ] → Π ((Path A) ∘ p))
+                  (e₀ e₁ : Int)
+                  (h₀ : ⟦ p₀ ∈ (Path A) (p e₀)∣ (φ , f) ∙ e₀ ↗ p₀ ⟧) where
+  p₀ = fst h₀
+  f↗p₀ = snd h₀
+
   f' : Int → [ φ ] → Π (A ∘ fst ∘ p)
   f' i u j = fst (f u j) i
   
@@ -149,31 +152,58 @@ abstract
   f₁' : (i : Int) → [ (φ ∨ i ≈O) ∨ i ≈I ] → Π (A ∘ fst ∘ p)
   f₁' i = _∪_ {φ = φ ∨ i ≈O} {ψ = i ≈I} (f₀' i) (fst (f₁ i)) {p = snd (f₁ i)}
   
-  extends : (i : Int) → prf ((((φ ∨ i ≈O) ∨ i ≈I) , f₁' i) ∙ ⟨ e ⟩ ↗ fst (fst path₀) i)
-  extends i u = or-elim-eq (λ v → f₁' i v ⟨ e ⟩) (fst (fst path₀) i) (λ {l} → leftCase l) (λ {r} → rightCase i r) u where
-    rightCase : (i : Int)(r : i ≡ I) → f₁' i ∣ inr r ∣ ⟨ e ⟩ ≡ fst (fst path₀) i
-    rightCase .I refl = symm (snd (snd (fst path₀)))
-    leftCase : (l : prf (fst (φ ∨ i ≈O))) → f₁' i ∣ inl l ∣ ⟨ e ⟩ ≡ fst (fst path₀) i
-    leftCase l = or-elim-eq (λ v → f₁' i ∣ inl v ∣ ⟨ e ⟩) (fst (fst path₀) i) (λ {l} → llCase l) (λ {r} → rlCase i r) l where
-      rlCase : (i : Int)(r : i ≡ O) → f₁' i ∣ inl ∣ inr r ∣ ∣ ⟨ e ⟩ ≡ fst (fst path₀) i
-      rlCase .O refl = symm (fst (snd (fst path₀)))
-      llCase : (l : [ φ ]) → f₁' i ∣ inl ∣ inl l ∣ ∣ ⟨ e ⟩ ≡ fst (fst path₀) i
-      llCase u = cong (λ p → fst p i) (snd path₀ u)
+  extends : (i : Int) → prf ((((φ ∨ i ≈O) ∨ i ≈I) , f₁' i) ∙ e₀ ↗ fst p₀ i)
+  extends i u = or-elim-eq (λ v → f₁' i v e₀) (fst p₀ i) (λ {l} → leftCase l) (λ {r} → rightCase i r) u where
+    rightCase : (i : Int)(r : i ≡ I) → f₁' i ∣ inr r ∣ e₀ ≡ fst p₀ i
+    rightCase .I refl = symm (snd (snd p₀))
+    leftCase : (l : prf (fst (φ ∨ i ≈O))) → f₁' i ∣ inl l ∣ e₀ ≡ fst p₀ i
+    leftCase l = or-elim-eq (λ v → f₁' i ∣ inl v ∣ e₀) (fst p₀ i) (λ {l} → llCase l) (λ {r} → rlCase i r) l where
+      rlCase : (i : Int)(r : i ≡ O) → f₁' i ∣ inl ∣ inr r ∣ ∣ e₀ ≡ fst p₀ i
+      rlCase .O refl = symm (fst (snd p₀))
+      llCase : (l : [ φ ]) → f₁' i ∣ inl ∣ inl l ∣ ∣ e₀ ≡ fst p₀ i
+      llCase u = cong (λ p → fst p i) (f↗p₀ u)
       
-  comp : (i : Int) → ⟦ a ∈ ((A ∘ fst ∘ p) ⟨ ! e ⟩) ∣ (((φ ∨ i ≈O) ∨ i ≈I) , f₁' i) ∙ ⟨ ! e ⟩ ↗ a ⟧
-  comp i = α e (fst ∘ p) ((φ ∨ i ≈O) ∨ i ≈I) (f₁' i) (fst (fst path₀) i , extends i)
+  comp : (i : Int) → ⟦ a ∈ ((A ∘ fst ∘ p) e₁) ∣ (((φ ∨ i ≈O) ∨ i ≈I) , f₁' i) ∙ e₁ ↗ a ⟧
+  comp i = fst (α (fst ∘ p)) ((φ ∨ i ≈O) ∨ i ≈I) (f₁' i) e₀ e₁ (fst p₀ i , extends i)
   
-  path₁ : (Path A ∘ p) ⟨ ! e ⟩
-  fst path₁ i = fst (comp i)
-  fst (snd path₁) = symm eqAtO where
-    eqAtO : fst (snd (p ⟨ ! e ⟩)) ≡ fst (comp O)
+  p₁ : (Path A ∘ p) e₁
+  fst p₁ i = fst (comp i)
+  fst (snd p₁) = symm eqAtO where
+    eqAtO : fst (snd (p e₁)) ≡ fst (comp O)
     eqAtO = snd (comp O) ∣ inl ∣ inr refl ∣ ∣
-  snd (snd path₁) = symm eqAtI where
-    eqAtI : snd (snd (p ⟨ ! e ⟩)) ≡ fst (comp I)
+  snd (snd p₁) = symm eqAtI where
+    eqAtI : snd (snd (p e₁)) ≡ fst (comp I)
     eqAtI = snd (comp I) ∣ inr refl ∣
 
-  fExtends : prf ((φ , f) ∙ ⟨ ! e ⟩ ↗ path₁)
-  fExtends u = PathExt (funext (λ i → snd (comp i) ∣ inl ∣ inl u ∣ ∣))
+  f↗p₁ : prf ((φ , f) ∙ e₁ ↗ p₁)
+  f↗p₁ u = PathExt (funext (λ i → snd (comp i) ∣ inl ∣ inl u ∣ ∣))
+
+  h₁ : ⟦ p₁ ∈ (Path A) (p e₁)∣ (φ , f) ∙ e₁ ↗ p₁ ⟧
+  h₁ = (p₁ , f↗p₁)
+
+ module Reduce (φ : Cof)
+               (f : [ φ ] → Π ((Path A) ∘ p))
+               (e : Int)
+               (h₀ : ⟦ p₀ ∈ (Path A) (p e) ∣ (φ , f) ∙ e ↗ p₀ ⟧) where
+  module c = Construct φ f e e h₀
+
+  fstp₁≡fstp₀ : fst (c.p₁) ≡ fst (c.p₀)
+  fstp₁≡fstp₀ = funext λ i → cong fst (snd (α (fst ∘ p)) ((φ ∨ i ≈O) ∨ i ≈I) (c.f₁' i) e (fst c.p₀ i , c.extends i ))
+
+  p₁≡p₀ : c.p₁ ≡ c.p₀
+  p₁≡p₀ = Σext fstp₁≡fstp₀ (Σext uipImp uipImp)
+
+  h₁≡h₀ : c.h₁ ≡ h₀
+  h₁≡h₀ = Σext p₁≡p₀ (funext (λ x → uipImp))
+
+abstract
+ FibPathId :
+  {A : Int → Set}
+  (α : isFib A)
+  → -----------
+  isFib (Path A)
+ FibPathId {A} α p = (fibPathId.Construct.h₁ , fibPathId.Reduce.h₁≡h₀) where
+  module fibPathId = FibPathIdInternal α p
 
 FibPath :
   {Γ : Set}
@@ -181,7 +211,7 @@ FibPath :
   (α : isFib A)
   → -----------
   isFib (Path A)
-FibPath {Γ} {A} α e p = FibPathId (reindex A α (fst ∘ p)) e (id× p) where
+FibPath {Γ} {A} α p =(FibPathId (reindex A α (fst ∘ p)) (id× p)) where
   id×_ : (p : Int → Σ Γ (λ x → A x × A x)) → Int → Σ Int (λ i → A (fst (p i)) × A (fst (p i)))
   (id× p) i = (i , snd (p i))
 
