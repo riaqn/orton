@@ -65,6 +65,14 @@ existsCof φ f fCof = subst (prf ∘ cof) eqProps' cofφ&exists where
   cofφ&exists : prf (cof (fst φ & exists [ φ ] f))
   cofφ&exists = cof& (fst φ) (exists [ φ ] f) (snd φ) imp
   
+Ωext : {prf₀ prf₁ : Set}
+       {equ₀ : (u v : prf₀) → u ≡ v}
+       {equ₁ : (u v : prf₁) → u ≡ v}
+       (p : prf₀ ≡ prf₁)
+       (q : subst (λ prf → (u v : prf) → u ≡ v) p equ₀ ≡ equ₁)
+       →
+       prop prf₀ equ₀ ≡ prop prf₁ equ₁
+Ωext refl refl = refl
 
 FibId' : {A : Int → Set} → isFib A → isFib (Id A)
 FibId' {A} α = FibΣ {B = Prf} (FibPath {A = A} α) β where
@@ -76,24 +84,40 @@ FibId' {A} α = FibΣ {B = Prf} (FibPath {A = A} α) β where
   
   prfExt : {x : Int}{a a' : A x}{p : a ~ a'}{pr pr' : Prf ((x , (a , a')) , p)} → fst (fst pr) ≡ fst (fst pr') → pr ≡ pr'
   prfExt {x} {a} {a'} {p} {((φ , _) , _)} {_} refl = Σext (Σext refl (eq (cof φ))) (eq (φ ⊃ (All i ∈ Int , fst p i ≈ a)))
-  
-  β : isFib Prf
-  β e p φ f φ' = ψ where
-    ψ : ⟦ ψ ∈ (Prf (p ⟨ ! e ⟩)) ∣ (φ , f) ∙ ⟨ ! e ⟩ ↗ ψ ⟧
-    fst (fst ψ) = (exists [ φ ] fI , existsCof φ fI (λ u → snd (fst (f u ⟨ ! e ⟩)))) where
-      fI : [ φ ] → Ω
-      fI u = fst (fst (f u ⟨ ! e ⟩))
-    snd (fst ψ) ex i = ex goal proof where
-      goal : Ω
-      goal = fst (snd (p ⟨ ! e ⟩)) i ≈ fst (snd (fst (p ⟨ ! e ⟩)))
-      proof : Σ [ φ ] (λ u → prf (fst (fst (f u ⟨ ! e ⟩)))) → prf (goal)
-      proof (u , v) = snd (f u ⟨ ! e ⟩) v i
-    snd ψ u = prfExt {p = snd (p ⟨ ! e ⟩)} (propext (λ v → ∣ u , v ∣) backwards) where
-      backwards : prf (fst (fst (fst ψ))) → prf (fst (fst (f u ⟨ ! e ⟩)))
-      backwards v = ∥∥-rec (fst (fst (f u ⟨ ! e ⟩))) (λ pair → subst (λ v → [ fst (f v ⟨ ! e ⟩) ]) (eq (fst φ )) (snd pair)) v
 
+  module FibPrfInternal (p : Int → Γ') where
+   module Construct (φ : Cof) (f : [ φ ] → Π (Prf ∘ p))
+                    (e₀ e₁ : Int) (h₀ : ⟦ x₀ ∈ Prf (p e₀) ∣ (φ , f ) ∙ e₀ ↗ x₀ ⟧)  where
+    h₁ : ⟦ h₁ ∈ (Prf (p e₁)) ∣ (φ , f) ∙ e₁ ↗ h₁ ⟧
+    fst (fst h₁) = (exists [ φ ] fI , existsCof φ fI (λ u → snd (fst (f u e₁)))) where
+      fI : [ φ ] → Ω
+      fI u = fst (fst (f u e₁))
+    snd (fst h₁) ex i = ex goal proof where
+      goal : Ω
+      goal = fst (snd (p e₁)) i ≈ fst (snd (fst (p e₁)))
+      proof : Σ [ φ ] (λ u → prf (fst (fst (f u e₁)))) → prf (goal)
+      proof (u , v) = snd (f u e₁) v i
+    snd h₁ u = prfExt {p = snd (p e₁)} (propext (λ v → ∣ u , v ∣) backwards) where
+      backwards : prf (fst (fst (fst h₁))) → prf (fst (fst (f u e₁)))
+      backwards v = ∥∥-rec (fst (fst (f u e₁))) (λ pair → subst (λ v → [ fst (f v e₁) ]) (eq (fst φ )) (snd pair)) v
+   module Reduce (φ : Cof) (f : [ φ ] → Π (Prf ∘ p))
+                 (e : Int) (h : ⟦ x₀ ∈ Prf (p e) ∣ (φ , f) ∙ e ↗ x₀ ⟧) where
+    module c = Construct φ f e e h
+
+    h₁≡h₀ : c.h₁ ≡ h
+    h₁≡h₀ = Σext (prfExt (propext (∥∥-elim (λ x → subst (λ k → prf (fst (fst k))) (snd h (fst x)) (snd x) ) λ x x' → {!cong !}) λ x P x₁ → x₁ {!!})) (funext (λ x → uipImp))
+
+  β : isFib Prf
+  β p = (construct , reduce) where
+   module fibPrfInternal = FibPrfInternal p
+   construct : Comp (Prf ∘ p)
+   construct φ f e₀ e₁ h₀ = c.h₁ where
+    module c = fibPrfInternal.Construct φ f e₀ e₁ h₀
+   reduce : Reduce construct
+   reduce φ f e h = r.h₁≡h₀ where
+    module r = fibPrfInternal.Reduce φ f e h
 FibId : {Γ : Set}{A : Γ → Set} → isFib A → isFib (Id A)
-FibId {Γ} {A} α e p = FibId' (reindex A α (fst ∘ p)) e (id× p) where
+FibId {Γ} {A} α p = FibId' (reindex A α (fst ∘ p)) (id× p) where
   id×_ : (p : Int → Σ Γ (λ x → A x × A x)) → Int → Σ Int (λ i → A (fst (p i)) × A (fst (p i)))
   (id× p) i = (i , snd (p i))
 
@@ -170,89 +194,7 @@ private
   (e : Id A (x , (a , a')))
   → -------------
   (b : B (a , reflId A a)) → ⟦ b' ∈ B(a' , e) ∣ fst (fst (snd e)) ⊃ (triple A B a' e b') ≈ (triple A B a (reflId A a) b) ⟧
- Jinternal {Γ} {A} {x} {a} B β a' (p , φ , pRefl) b = (bI' , atRefl) where
-  q : (i : Int) → Id A (x , (a , fst p i))
-  fst (fst (q i)) j = fst p (min i j)
-  fst (snd (fst (q i))) = fst (snd p)
-  snd (snd (fst (q i))) = refl
-  fst (snd (q i)) = φ ∨ i ≈O
-  snd (snd (q i)) u j = or-elim-eq (λ _ → fst p (min i j)) a (λ {l} → pRefl l (min i j)) (λ {r} → right i r) u where
-    right : (i : Int) → (i ≡ O) → fst p (min i j) ≡ a
-    right .O refl = fst (snd p)
-
-  substEq : {x : Γ}{a a' : A x}(equal : a ≡ a')(goal : Id A (x , (a , a')))
-    → fst (fst (reflId A a)) ≡ fst (fst goal)
-    → [ fst (snd goal) ]
-    → subst (λ a'' → Id A (x , a , a'')) equal (reflId A a) ≡ goal
-  substEq refl goal equal u = IdExt {A = A} equal (propext (λ _ → u) (λ _ → tt))
-
-  coePath : (i : Int)(equal : (j : Int) → a ≡ fst p (min i j))(u : [ φ ∨ i ≈O ])
-    → (a , reflId A a) ≡ (fst p i , q i)
-  coePath i equal u = Σext (equal I) (substEq (equal I) (q i) (funext equal) u)
-
-  coeB : (i : Int)(equal : (j : Int) → a ≡ fst p (min i j))(u : [ φ ∨ i ≈O ])
-    → B (a , reflId A a) → B (fst p i , q i)
-  coeB i equal u b = subst B (coePath i equal u) b
-    
-  f : [ φ ] → Π (B ∘ (λ i → fst p i , q i))
-  f u i = coeB i (λ j → symm (pRefl u (min i j))) ∣ inl u ∣ b
-    
-  b' : B (fst p O , q O)
-  b' = coeB O (λ _ → a≡pO) ∣ inr refl ∣ b where
-    a≡pO : a ≡ fst p O
-    a≡pO = symm (fst (snd p))
-    
-  congSubst : {A : Set}{a a' : A}(B : A → Set)(p q : a ≡ a')(b b' : B a) → b ≡ b' → subst B p b ≡ subst B q b'
-  congSubst B refl refl b .b refl = refl
-
-  extends : prf ((φ , f) ∙ O ↗ b')
-  extends u = congSubst B eq₁ eq₂ b b refl where
-    eq₁ : (a , reflId A a) ≡ (fst p O , q O)
-    eq₁ = coePath O (λ j → symm (pRefl u O)) ∣ inl u ∣
-    eq₂ : (a , reflId A a) ≡ (fst p O , q O)
-    eq₂ = coePath O (λ _ → symm (fst (snd p))) ∣ inr refl ∣
-
-  bI : B (fst p I , q I)
-  bI = fst (β O' (λ i → (fst p i , q i)) φ f (b' , extends))
-
-  pI≡a : fst p I ≡ a'
-  pI≡a = snd (snd p)
-
-  substEq' : {a' a'' : A x}(equal : a' ≡ a'')(id : Id A (x , (a , a')))(id' : Id A (x , (a , a'')))
-    → fst (fst id) ≡ fst (fst id')
-    → fst (fst (snd id)) ≡ fst (fst (snd id'))
-    → subst (λ a'' → Id A (x , a , a'')) equal id ≡ id'
-  substEq' refl id id' eq₁ eq₂  = IdExt {A = A} eq₁ eq₂
-
-  qI≡p : subst (λ a' → Id A (x , (a , a'))) pI≡a (q I) ≡ (p , φ , pRefl)
-  qI≡p = substEq' pI≡a (q I) (p , φ , pRefl) refl eqProps where
-    eqProps : fst (φ ∨ I ≈O) ≡ fst φ
-    eqProps = propext
-      (λ u → u (fst φ) (λ{ (inl u) → u ; (inr I≡O) → ∅-elim (O≠I (symm I≡O)) }))
-      (λ u → ∣ inl u ∣)
-
-  bI' : B (a' , p , φ , pRefl)
-  bI' = subst B (Σext pI≡a qI≡p) bI
-
-  fI≡bI : (u : [ φ ]) → f u I ≡ bI
-  fI≡bI u = snd (β O' (λ i → (fst p i , q i)) φ f (b' , extends)) u 
-    
-  substSwap : {A : Set}{a a' : A}(B : A → Set)(p : a ≡ a')(q : a' ≡ a)(b : B a)(b' : B a') → subst B p b ≡ b' → b ≡ subst B q b'
-  substSwap B refl refl b .b refl = refl
-    
-  substTrans : {A : Set}{a a' a'' : A}(B : A → Set)(p : a ≡ a')(q : a' ≡ a'')(b : B a) → subst B (trans q p) b ≡ subst B q (subst B p b)
-  substTrans B refl refl b = refl
-
-  b≡bI' : (u : [ φ ])(equal : (a' , p , φ , pRefl) ≡ (a , reflId A a)) → subst B equal bI' ≡ b
-  b≡bI' u equal = let rr = symm (trans sbI≡sbI' b≡sbI) in rr where
-    b≡sbI : b ≡ subst B (trans equal (Σext pI≡a qI≡p)) bI
-    b≡sbI = substSwap B (coePath I (λ j → symm (pRefl u j)) ∣ inl u ∣) (trans equal (Σext pI≡a qI≡p)) b bI (fI≡bI u)
-    sbI≡sbI' : subst B (trans equal (Σext pI≡a qI≡p)) bI ≡ subst B equal bI'
-    sbI≡sbI' = substTrans B (Σext pI≡a qI≡p) equal bI
-
-  atRefl : (u : [ φ ]) → (triple A B a' (p , φ , pRefl) bI') ≡ (triple A B a (reflId A a) b)
-  atRefl u = tripleExt A B (trans (pRefl u I) (symm (snd (snd p)))) (funext (pRefl u)) (propext (λ _ → tt) (λ _ → u)) (b≡bI' u)
-
+ Jinternal {Γ} {A} {x} {a} B β a' (p , φ , pRefl) b = {!!}
 
 J :
   {Γ : Set}
